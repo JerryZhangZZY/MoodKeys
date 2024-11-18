@@ -1,0 +1,5 @@
+{
+  "API_TOKEN": "<your own api token>",
+  "LOCATION": "here",
+  "REFRESH_PERIOD_MIN": "5"
+}
