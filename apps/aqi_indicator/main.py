@@ -77,28 +77,3 @@ def get_light_entry():
     """Get AQI failed"""
     Logger.warning(APP_NAME, "Get AQI failed")
     return None
-
-
-if __name__ == '__main__':
-    api = ViaLightingAPI(17498, None)
-    api.set_color_correction([150, 240, 60])
-
-    """This is a simple light applying method that should be implemented in Manager.py"""
-    get_refresh_period()
-    light_entry = get_light_entry()
-    if not light_entry:
-        light_entry = LightEntry(LightEntry.Effect.WARNING)
-    brightness, effect, effect_speed, color, color_abs = light_entry.get_entries()
-    if effect:
-        api.set_effect(effect)
-    if effect_speed:
-        api.set_effect_speed(effect_speed)
-    if color_abs:
-        api.set_color_abs(color_abs)
-    else:
-        if color:
-            api.set_color(color)
-        if brightness:
-            api.set_brightness(brightness)
-
-    """This is a simple light applying method that should be implemented in Manager.py"""

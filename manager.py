@@ -3,12 +3,15 @@ import json, os, sys, importlib.util, schedule, time, threading
 from via_lighting_api import ViaLightingAPI
 
 from utils import Logger, LightEntry
+from typing import Optional
 
-NAME = 'Manager'
+TAG = 'Manager'
 
 vid = None
 pid = None
 true_white = None
+
+api: Optional[ViaLightingAPI] = None
 
 
 def __load_config():
@@ -38,7 +41,7 @@ def list_apps():
                             break
 
             except Exception as e:
-                Logger.error(NAME, f'Error loading {app_name}: {e}')
+                Logger.error(TAG, f'Error loading {app_name}: {e}')
 
     return apps
 
@@ -52,17 +55,18 @@ def load_selected_app(selected_app_path):
         spec.loader.exec_module(main_module)
         return main_module
     except Exception as e:
-        Logger.error(NAME, f'Error loading {selected_app_path}: {e}')
+        Logger.error(TAG, f'Error loading {selected_app_path}: {e}')
         return None
 
 
-def refresh_lighting(api, app_module):
-    Logger.info(NAME, 'Refreshing lighting')
+def refresh_lighting(app_module):
+    Logger.info(TAG, 'Refreshing lighting')
     if hasattr(app_module, 'get_light_entry'):
-        apply_light_entry(api, app_module.get_light_entry())
+        apply_light_entry(app_module.get_light_entry())
 
 
-def apply_light_entry(api, light_entry):
+def apply_light_entry(light_entry):
+    global api
     if not light_entry:
         """Apply warning light effect"""
         light_entry = LightEntry(LightEntry.Effect.WARNING)
@@ -82,47 +86,70 @@ def apply_light_entry(api, light_entry):
 
 def run_app_schedule():
     while True:
-        schedule.run_pending()
+        try:
+            schedule.run_pending()
+        except OSError:
+            Logger.warning(TAG, "Connection lost, trying to reconnect")
+            init()
         time.sleep(1)
 
 
+def init():
+    global api
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            api = ViaLightingAPI(vid, pid)
+            Logger.info(TAG, "Keyboard connected")
+            if true_white:
+                api.set_color_correction(true_white)
+                Logger.info(TAG, "Color correction enabled")
+            return
+        except Exception as e:
+            Logger.warning(TAG, f"Failed to connect: {e} Retrying {attempt + 1}/{max_retries}...")
+            time.sleep(1)
+
+    Logger.error(TAG, "Max retries reached. Could not connect to keyboard.")
+    sys.exit(1)
+
+
 if __name__ == '__main__':
+    """Load config"""
     __load_config()
-    Logger.info(NAME, "Config loaded")
-    api = ViaLightingAPI(vid, pid)
-    Logger.info(NAME, "Keyboard connected")
-    if true_white:
-        api.set_color_correction(true_white)
-        Logger.info(NAME, "Color correction enabled")
+    Logger.info(TAG, "Config loaded")
+
+    """Init api"""
+    init()
 
     """Apply standby light effect"""
-    apply_light_entry(api, LightEntry(LightEntry.Effect.STANDBY))
+    apply_light_entry(LightEntry(LightEntry.Effect.STANDBY))
 
+    """Show apps"""
     apps = list_apps()
-
-    print("Available applications:")
+    print("Available Apps:")
     app_list = list(apps.keys())
     for index, app_name in enumerate(app_list):
         print(f"{index + 1}. {app_name}")
 
+    """User selection"""
     selected_index = input("Please enter the number of the application you want to load: ")
 
+    """Run selected app"""
     if selected_index.isdigit() and 1 <= int(selected_index) <= len(app_list):
         selected_app_name = app_list[int(selected_index) - 1]
         app_path = apps[selected_app_name]
         app_module = load_selected_app(app_path)
-
         if app_module:
-            Logger.info(NAME, f"Starting app: {selected_app_name}")
+            Logger.info(TAG, f"Starting app: {selected_app_name}")
             if hasattr(app_module, 'get_refresh_period'):
                 period = int(app_module.get_refresh_period())
-                schedule.every(period).minutes.do(refresh_lighting, api, app_module)
-                Logger.info(NAME, f"Refresh period set to {period} mins")
+                schedule.every(period).minutes.do(refresh_lighting, app_module)
+                Logger.info(TAG, f"Refresh period set to {period} mins")
                 schedule_thread = threading.Thread(target=run_app_schedule)
                 """Run refresh immediately"""
-                refresh_lighting(api, app_module)
+                refresh_lighting(app_module)
                 schedule_thread.start()
             else:
-                Logger.error(NAME, f"No 'get_refresh_period()' function found in {selected_app_name}.")
+                Logger.error(TAG, f"No 'get_refresh_period()' function found in {selected_app_name}.")
     else:
         print("Invalid application number.")
