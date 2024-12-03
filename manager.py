@@ -10,17 +10,19 @@ TAG = 'Manager'
 vid = None
 pid = None
 true_white = None
+reconnect_timeout = 5
 
 api: Optional[ViaLightingAPI] = None
 
 
 def __load_config():
-    global vid, pid, true_white
+    global vid, pid, true_white, reconnect_timeout
     with open('config.json', 'r') as f:
         config = json.load(f)
         vid = config.get('VENDOR_ID')
         pid = config.get('PRODUCT_ID', None)
         true_white = config.get('COLOR_CORRECTION_TRUE_WHITE', None)
+        reconnect_timeout = int(config.get('RECONNECT_TIMEOUT', 5))
 
 
 def list_apps():
@@ -96,7 +98,8 @@ def run_app_schedule():
 
 def init():
     global api
-    max_retries = 5
+    retry_interval = 1
+    max_retries = int(reconnect_timeout / retry_interval)
     for attempt in range(max_retries):
         try:
             api = ViaLightingAPI(vid, pid)
@@ -107,7 +110,7 @@ def init():
             return
         except Exception as e:
             Logger.warning(TAG, f"Failed to connect: {e} Retrying {attempt + 1}/{max_retries}...")
-            time.sleep(1)
+            time.sleep(retry_interval)
 
     Logger.error(TAG, "Max retries reached. Could not connect to keyboard.")
     sys.exit(1)

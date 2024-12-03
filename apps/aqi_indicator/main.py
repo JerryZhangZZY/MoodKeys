@@ -31,7 +31,7 @@ def __load_config():
         config = json.load(f)
         api_token = config.get('API_TOKEN')
         location = config.get('LOCATION', 'here')  # IP location by default
-        refresh_period_min = config.get('REFRESH_PERIOD_MIN')  # 5 mins by default
+        refresh_period_min = int(config.get('REFRESH_PERIOD_MIN'))  # 5 mins by default
 
 
 def get_refresh_period():
