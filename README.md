@@ -12,6 +12,7 @@ A project that dynamically changes keyboard backlight colors and effects to refl
 
 ### Automations
 
+ - Timer: Turn off lights outside the specified time period, also support China’s statutory holidays
  - ...
 
 ## How to Run

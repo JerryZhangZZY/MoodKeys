@@ -1,9 +1,9 @@
-import json, os
+import json
+import os
 
 from apps.aqi_indicator import APP_NAME
 from apps.aqi_indicator.aqi_fetcher import fetch_aqi
 from utils import LightEntry, Logger
-from via_lighting_api import ViaLightingAPI
 
 """Colors"""
 COLOR_1 = [0, 120, 126]
